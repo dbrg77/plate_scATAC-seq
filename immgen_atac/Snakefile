@@ -1,0 +1,111 @@
+import pandas as pd
+
+df = pd.read_table('PRJNA392905.txt')
+df = df[df["sample_title"].str.contains('.Sp#')]
+
+rule all:
+    input:
+        [''.join(['hisat2_mm10_mapped/', i, '_f2q30.bam']) for i in df['run_accession'].values],
+        [''.join(['hisat2_mm10_mapped/', i, '_f2q30.bam.bai']) for i in df['run_accession'].values],
+        [''.join(['hisat2_mm10_log/', i, '_aln_sum.txt']) for i in df['run_accession'].values],
+        [''.join(['picard_bam/', i, '_f2q30_pmd.bam']) for i in df['run_accession'].values],
+        [''.join(['picard_bam/', i, '_f2q30_pmd.bam.bai']) for i in df['run_accession'].values],
+        [''.join(['picard_log/', i, '_f2q30_pmd.out']) for i in df['run_accession'].values],
+        [''.join(['macs2_pk/', i, '_peaks.narrowPeak']) for i in df['run_accession'].values],
+        [''.join(['macs2_pk/', i, '_peaks.xls']) for i in df['run_accession'].values],
+        [''.join(['macs2_pk/', i, '_summits.bed']) for i in df['run_accession'].values],
+        'immgen_mSp_union_peaks.bed'
+
+rule hisat2:
+    input:
+        r1='fastq/{run_accession}_1.fastq.gz',
+        r2='fastq/{run_accession}_2.fastq.gz'
+    output:
+        bam='hisat2_mm10_mapped/{run_accession}_f2q30.bam',
+        stats='hisat2_mm10_log/{run_accession}_aln_sum.txt'
+    threads: 8
+    shell:
+        ''' hisat2 \
+            -X 2000 \
+            -p {threads} \
+            --no-spliced-alignment \
+            -3 1 \
+            -x /mnt/reference/mus_musculus/ucsc/mm10/hisat2_index/mm10_sm \
+            -1 {input.r1} \
+            -2 {input.r2} \
+            --summary-file {output.stats} | \
+            samtools view -ShuF 4 -f 2 -q 30 - | \
+            samtools sort - -T {wildcards.run_accession}_tmp -o {output.bam}
+        '''
+
+rule index1:
+    input:
+        'hisat2_mm10_mapped/{run_accession}_f2q30.bam'
+    output:
+        'hisat2_mm10_mapped/{run_accession}_f2q30.bam.bai'
+    shell:
+        ''' samtools index {input}
+        '''
+
+rule picard:
+    input:
+        'hisat2_mm10_mapped/{run_accession}_f2q30.bam'
+    output:
+       bam='picard_bam/{run_accession}_f2q30_pmd.bam',
+       met='picard_log/{run_accession}_f2q30_pmd.out'
+    shell:
+        ''' java -jar -Xmx8g \
+            /home/ubuntu/picard_2.17.10/picard.jar \
+            MarkDuplicates \
+            INPUT={input} \
+            OUTPUT={output.bam} \
+            REMOVE_DUPLICATES=true \
+            ASSUME_SORTED=true \
+            METRICS_FILE={output.met} \
+        '''
+
+rule index2:
+    input:
+        'picard_bam/{run_accession}_f2q30_pmd.bam'
+    output:
+        'picard_bam/{run_accession}_f2q30_pmd.bam.bai'
+    shell:
+        ''' samtools index {input}
+        '''
+
+rule macs2:
+    input:
+        'picard_bam/{run_accession}_f2q30_pmd.bam'
+    output:
+        'macs2_pk/{run_accession}_peaks.narrowPeak',
+        'macs2_pk/{run_accession}_peaks.xls',
+        'macs2_pk/{run_accession}_summits.bed',
+    log:
+        'macs2_pk/{run_accession}_macs2.log'
+    shell:
+        ''' macs2 callpeak -t {input} \
+            -g mm \
+            -f BAM \
+            -q 0.01 \
+            --nomodel \
+            --keep-dup all \
+            --shift -100 \
+            --extsize 200 \
+            --outdir macs2_pk \
+            -n {wildcards.run_accession} \
+            2> {log}
+        '''
+
+rule unionPeak:
+    input:
+        expand('macs2_pk/{run_accession}_peaks.narrowPeak', run_accession=df["run_accession"].values)
+    output:
+        'immgen_mSp_union_peaks.bed'
+    shell:
+        """ cat macs2_pk/*.narrowPeak | \
+            cut -f 1-4 | \
+            sortBed -i - | \
+            mergeBed -i - | \
+            awk 'BEGIN{{OFS="\t"}}{{print $1,$2,$3, "ImmGen_mSp_uPk_" NR}}' \
+            > immgen_mSp_union_peaks.bed
+        """

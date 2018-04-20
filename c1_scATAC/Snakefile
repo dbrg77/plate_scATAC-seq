@@ -1,0 +1,366 @@
+import pandas as pd
+
+samples = pd.concat([pd.read_table('PRJNA274006.txt'), pd.read_table('PRJNA299657.txt')])
+samples['dir'] = samples['scientific_name'].values
+samples.replace({'dir' : {'Homo sapiens' : 'human',
+                          'Mus musculus' : 'mouse'}},
+                inplace=True)
+samples['cells'] = samples.sample_title.str.split('-').str[1]
+batch = samples.drop_duplicates(subset=['dir', 'cells'])
+
+mouse_samples = samples[samples['scientific_name'] == 'Mus musculus']
+human_samples = samples[samples['scientific_name'] == 'Homo sapiens']
+
+rule all:
+    input:
+        list(samples['dir'] + '/' + samples['cells'] + '/trim_fq/' + samples['run_accession'] + '_r1.fq.gz'),
+        list(samples['dir'] + '/' + samples['cells'] + '/trim_fq/' + samples['run_accession'] + '_r2.fq.gz'),
+        list(mouse_samples['dir'] + '/' + mouse_samples['cells'] + '/hisat2_mm10_mapped/' + mouse_samples['run_accession'] + '_f2q30.bam'),
+        list(mouse_samples['dir'] + '/' + mouse_samples['cells'] + '/hisat2_mm10_log/' + mouse_samples['run_accession'] + '_aln_sum.txt'),
+        list(human_samples['dir'] + '/' + human_samples['cells'] + '/hisat2_hg38_mapped/' + human_samples['run_accession'] + '_f2q30.bam'),
+        list(human_samples['dir'] + '/' + human_samples['cells'] + '/hisat2_hg38_log/' + human_samples['run_accession'] + '_aln_sum.txt'),
+        list(samples['dir'] + '/' + samples['cells'] + '/picard_bam/' + samples['run_accession'] + '_f2q30_pmd.bam'),
+        list(samples['dir'] + '/' + samples['cells'] + '/picard_bam/' + samples['run_accession'] + '_f2q30_pmd.bam.bai'),
+        list(samples['dir'] + '/' + samples['cells'] + '/picard_log/' + samples['run_accession'] + '_f2q30_pmd.out'),
+        list(samples['dir'] + '/' + samples['cells'] + '/isize_hist/' + samples['run_accession'] + '_isize.hist'),
+        list(batch['dir'] + '/' + batch['cells'] + '/bam_file_list.txt'),
+        list(batch['dir'] + '/' + batch['cells'] + '/aggregate/f2q30_merged.bam'),
+        list(batch['dir'] + '/' + batch['cells'] + '/aggregate/f2q30_merged_pmd.bam'),
+        list(batch['dir'] + '/' + batch['cells'] + '/aggregate/f2q30_merged_pmd.out'),
+        list(batch['dir'] + '/' + batch['cells'] + '/aggregate/aggregated_scATAC_peaks.narrowPeak'),
+        list(batch['dir'] + '/' + batch['cells'] + '/aggregate/aggregated_scATAC_peaks.xls'),
+        list(batch['dir'] + '/' + batch['cells'] + '/aggregate/aggregated_scATAC_summits.bed'),
+        list(batch['dir'] + '/' + batch['cells'] + '/aggregate/aggregated_scATAC_treat_pileup.bdg'),
+        list(batch['dir'] + '/' + batch['cells'] + '/aggregate/aggregated_scATAC_control_lambda.bdg'),
+        list(batch['dir'] + '/' + batch['cells'] + '/aggregate/aggregated_scATAC_treat_pileup.bw'),
+        list(samples['dir'] + '/' + samples['cells'] + '/count/' + samples['run_accession'] + '.count'),
+        # list(batch['dir'] + '/' + batch['cells'] + '/count_matrix_over_aggregate_narrowPeaks.csv'),
+        'qc_metrics/dup_level.txt',
+        'qc_metrics/mapping_rate.txt',
+        'qc_metrics/mt_content.txt',
+        'qc_metrics/sequencing_depth.txt',
+        'qc_metrics/uniq_frags.txt',
+        'qc_metrics/frip.txt',
+        'qc_metrics/frac_open.txt'
+
+rule cutadapt:
+    input:
+        r1='fastq/{run_accession}_1.fastq.gz',
+        r2='fastq/{run_accession}_2.fastq.gz'
+    output:
+        r1='{dir}/{cells}/trim_fq/{run_accession}_r1.fq.gz',
+        r2='{dir}/{cells}/trim_fq/{run_accession}_r2.fq.gz'
+    log:
+        out='logs/cutadapt/{run_accession}.out',
+        err='logs/cutadapt/{run_accession}.err'
+    shell:
+        ''' cutadapt \
+            -f fastq \
+            -m 25 \
+            -u -1 \
+            -U -1 \
+            -a CTGTCTCTTATACACATCTCCGAGCCCACGAGACNNNNNNNNATCTCGTATGCCGTCTTCTGCTTG \
+            -A CTGTCTCTTATACACATCTGACGCTGCCGACGANNNNNNNNGTGTAGATCTCGGTGGTCGCCGTATCATT \
+            -o {output.r1} -p {output.r2} \
+            {input.r1} \
+            {input.r2} \
+            1> {log.out}
+            2> {log.err}
+        '''
+
+rule hisat2_mm10:
+    input:
+        r1='mouse/{cells}/trim_fq/{run_accession}_r1.fq.gz',
+        r2='mouse/{cells}/trim_fq/{run_accession}_r2.fq.gz'
+    output:
+        bam='mouse/{cells}/hisat2_mm10_mapped/{run_accession}_f2q30.bam',
+        stats='mouse/{cells}/hisat2_mm10_log/{run_accession}_aln_sum.txt'
+    threads: 4
+    shell:
+        ''' hisat2 \
+            -X 2000 \
+            -p {threads} \
+            --no-spliced-alignment \
+            -x /mnt/reference/mus_musculus/ucsc/mm10/hisat2_index/mm10_sm \
+            -1 {input.r1} \
+            -2 {input.r2} \
+            --summary-file {output.stats} | \
+            samtools view -ShuF 4 -f 2 -q 30 - | \
+            samtools sort - -T {wildcards.run_accession}_tmp -o {output.bam}
+        '''
+
+rule hisat2_hg38:
+    input:
+        r1='human/{cells}/trim_fq/{run_accession}_r1.fq.gz',
+        r2='human/{cells}/trim_fq/{run_accession}_r2.fq.gz'
+    output:
+        bam='human/{cells}/hisat2_hg38_mapped/{run_accession}_f2q30.bam',
+        stats='human/{cells}/hisat2_hg38_log/{run_accession}_aln_sum.txt'
+    threads: 4
+    shell:
+        ''' hisat2 \
+            -X 2000 \
+            -p {threads} \
+            --no-spliced-alignment \
+            -x /mnt/reference/homo_sapiens/ucsc/hg38/hisat2_index/hg38_sm_noAlt \
+            -1 {input.r1} \
+            -2 {input.r2} \
+            --summary-file {output.stats} | \
+            samtools view -ShuF 4 -f 2 -q 30 - | \
+            samtools sort - -T {wildcards.run_accession}_tmp -o {output.bam}
+        '''
+
+rule spicard_mm10:
+    input:
+        'mouse/{cells}/hisat2_mm10_mapped/{run_accession}_f2q30.bam',
+    output:
+        bam='mouse/{cells}/picard_bam/{run_accession}_f2q30_pmd.bam',
+        met='mouse/{cells}/picard_log/{run_accession}_f2q30_pmd.out',
+    log:
+        'logs/spicard/{run_accession}.log'
+    shell:
+        ''' java -jar -Xmx4g \
+            /home/ubuntu/picard_2.17.10/picard.jar \
+            MarkDuplicates \
+            INPUT={input} \
+            OUTPUT={output.bam} \
+            REMOVE_DUPLICATES=true \
+            ASSUME_SORTED=true \
+            METRICS_FILE={output.met} \
+            2> {log}
+        '''
+rule spicard_hg38:
+    input:
+        'human/{cells}/hisat2_hg38_mapped/{run_accession}_f2q30.bam',
+    output:
+        bam='human/{cells}/picard_bam/{run_accession}_f2q30_pmd.bam',
+        met='human/{cells}/picard_log/{run_accession}_f2q30_pmd.out',
+    log:
+        'logs/spicard/{run_accession}.log'
+    shell:
+        ''' java -jar -Xmx4g \
+            /home/ubuntu/picard_2.17.10/picard.jar \
+            MarkDuplicates \
+            INPUT={input} \
+            OUTPUT={output.bam} \
+            REMOVE_DUPLICATES=true \
+            ASSUME_SORTED=true \
+            METRICS_FILE={output.met} \
+            2> {log}
+        '''
+
+rule index:
+    input:
+        '{dir}/{cells}/picard_bam/{run_accession}_f2q30_pmd.bam'
+    output:
+        '{dir}/{cells}/picard_bam/{run_accession}_f2q30_pmd.bam.bai'
+    shell:
+        ''' samtools index {input}
+        '''
+
+rule isize:
+    input:
+        '{dir}/{cells}/picard_bam/{run_accession}_f2q30_pmd.bam'
+    output:
+        '{dir}/{cells}/isize_hist/{run_accession}_isize.hist'
+    shell:
+        """ samtools view {input} | \
+            sed '/chrM/d' | \
+            awk '$9>0' | \
+            cut -f 9 | sort | uniq -c | \
+            sort -b -k2,2n | \
+            sed -e 's/^[ \t]*//' > {output}
+        """
+
+rule list_bam:
+    input:
+        expand('{species}/{cells}/picard_bam/{run_accession}_f2q30_pmd.bam', zip,
+               species=samples['dir'],
+               cells=samples['cells'],
+               run_accession=samples['run_accession'])
+    output:
+        expand('{species}/{cells}/bam_file_list.txt', zip,
+                species=batch['dir'],
+                cells=batch['cells'])
+    shell:
+        ''' scripts/list_bam.sh
+        '''
+
+rule merge:
+    input:
+        '{dir}/{cells}/bam_file_list.txt'
+    output:
+        '{dir}/{cells}/aggregate/f2q30_merged.bam'
+    shell:
+        ''' samtools merge -b {input} {output}
+        '''
+
+rule mpicard:
+    input:
+        '{dir}/{cells}/aggregate/f2q30_merged.bam'
+    output:
+        bam='{dir}/{cells}/aggregate/f2q30_merged_pmd.bam',
+        met='{dir}/{cells}/aggregate/f2q30_merged_pmd.out'
+    shell:
+        ''' java -jar -Xmx8g \
+            /home/ubuntu/picard_2.17.10/picard.jar \
+            MarkDuplicates \
+            INPUT={input} \
+            OUTPUT={output.bam} \
+            REMOVE_DUPLICATES=true \
+            ASSUME_SORTED=true \
+            METRICS_FILE={output.met}
+        '''
+
+rule macs2_mm10:
+    input:
+        'mouse/{cells}/aggregate/f2q30_merged_pmd.bam'
+    output:
+        'mouse/{cells}/aggregate/aggregated_scATAC_peaks.narrowPeak',
+        'mouse/{cells}/aggregate/aggregated_scATAC_peaks.xls',
+        'mouse/{cells}/aggregate/aggregated_scATAC_summits.bed',
+        'mouse/{cells}/aggregate/aggregated_scATAC_treat_pileup.bdg',
+        'mouse/{cells}/aggregate/aggregated_scATAC_control_lambda.bdg'
+    log:
+        'logs/macs2/{whildcards.cells}_macs2.out'
+    shell:
+        ''' macs2 callpeak -t {input} \
+            -g mm \
+            -f BAM \
+            -q 0.01 \
+            --nomodel \
+            --shift -100 \
+            --extsize 200 \
+            --keep-dup all \
+            -B --SPMR \
+            --outdir mouse/{wildcards.cells}/aggregate \
+            -n aggregated_scATAC \
+            2> {log}
+        '''
+
+rule macs2_hg38:
+    input:
+        'human/{cells}/aggregate/f2q30_merged_pmd.bam'
+    output:
+        'human/{cells}/aggregate/aggregated_scATAC_peaks.narrowPeak',
+        'human/{cells}/aggregate/aggregated_scATAC_peaks.xls',
+        'human/{cells}/aggregate/aggregated_scATAC_summits.bed',
+        'human/{cells}/aggregate/aggregated_scATAC_treat_pileup.bdg',
+        'human/{cells}/aggregate/aggregated_scATAC_control_lambda.bdg'
+    log:
+        'logs/macs2/{whildcards.cells}_macs2.out'
+    shell:
+        ''' macs2 callpeak -t {input} \
+            -g hs \
+            -f BAM \
+            -q 0.01 \
+            --nomodel \
+            --shift -100 \
+            --extsize 200 \
+            --keep-dup all \
+            -B --SPMR \
+            --outdir human/{wildcards.cells}/aggregate \
+            -n aggregated_scATAC \
+            2> {log}
+        '''
+
+rule bigwig_mm10:
+    input:
+        'mouse/{cells}/aggregate/aggregated_scATAC_treat_pileup.bdg',
+        'mm10.chrom.sizes'
+    output:
+        'mouse/{cells}/aggregate/aggregated_scATAC_treat_pileup.bw'
+    shell:
+        ''' bdg2bw {input}
+        '''
+
+rule bigwig_hg38:
+    input:
+        'human/{cells}/aggregate/aggregated_scATAC_treat_pileup.bdg',
+        'hg38.chrom.sizes'
+    output:
+        'human/{cells}/aggregate/aggregated_scATAC_treat_pileup.bw'
+    shell:
+        ''' bdg2bw {input}
+        '''
+
+rule count:
+    input:
+        peak='{dir}/{cells}/aggregate/aggregated_scATAC_peaks.narrowPeak',
+        bam='{dir}/{cells}/picard_bam/{run_accession}_f2q30_pmd.bam'
+    output:
+        '{dir}/{cells}/count/{run_accession}.count'
+    shell:
+        ''' coverageBed \
+            -a {input.peak} \
+            -b {input.bam} | \
+            cut -f 4,11 > {output}
+        '''
+
+# rule countMatrix:
+#     input:
+#         expand('{species}/{cells}/count/{run_accession}.count', zip,
+#                species=samples['dir'],
+#                cells=samples['cells'],
+#                run_accession=samples['run_accession'])
+#     output:
+#         expand('{species}/{cells}/count_matrix_over_aggregate_narrowPeaks.csv', zip,
+#                species=batch['dir'],
+#                cells=batch['cells'])
+#     script:
+#         'scripts/genernate_count_matrix.py'
+
+rule basicQc:
+    input:
+        expand('{species}/{cells}/picard_bam/{run_accession}_f2q30_pmd.bam', zip,
+               species=samples['dir'], cells=samples['cells'],
+               run_accession=samples['run_accession']),
+        expand('{species}/{cells}/picard_bam/{run_accession}_f2q30_pmd.bam.bai', zip,
+               species=samples['dir'], cells=samples['cells'],
+               run_accession=samples['run_accession']),
+        expand('mouse/{cells}/hisat2_mm10_log/{run_accession}_aln_sum.txt', zip,
+               cells=mouse_samples['cells'],
+               run_accession=mouse_samples['run_accession']),
+        expand('human/{cells}/hisat2_hg38_log/{run_accession}_aln_sum.txt', zip,
+               cells=human_samples['cells'],
+               run_accession=human_samples['run_accession'])
+    output:
+        'qc_metrics/dup_level.txt',
+        'qc_metrics/mapping_rate.txt',
+        'qc_metrics/mt_content.txt',
+        'qc_metrics/sequencing_depth.txt',
+        'qc_metrics/uniq_frags.txt'
+    shell:
+        ''' scripts/get_dup_level.sh
+            scripts/get_depth_mr.sh
+            scripts/get_ufrags_mt.sh
+        '''
+
+rule frip:
+    input:
+        expand('{species}/{cells}/picard_bam/{run_accession}_f2q30_pmd.bam', zip,
+               species=samples['dir'], cells=samples['cells'],
+               run_accession=samples['run_accession']),
+        expand('{species}/{cells}/picard_bam/{run_accession}_f2q30_pmd.bam.bai', zip,
+               species=samples['dir'], cells=samples['cells'],
+               run_accession=samples['run_accession']),
+        expand('{species}/{cells}/aggregate/aggregated_scATAC_peaks.narrowPeak', zip,
+               species=batch['dir'], cells=batch['cells'])
+    output:
+        'qc_metrics/frip.txt'
+    shell:
+        ''' scripts/get_frip.sh
+        '''
+
+rule fracOpen:
+    input:
+        expand('{species}/{cells}/picard_bam/{run_accession}_f2q30_pmd.bam', zip,
+               species=samples['dir'], cells=samples['cells'],
+               run_accession=samples['run_accession']),
+        expand('{species}/{cells}/aggregate/aggregated_scATAC_peaks.narrowPeak', zip,
+               species=batch['dir'], cells=batch['cells'])
+    output:
+        'qc_metrics/frac_open.txt'
+    shell:
+        ''' scripts/get_frac_open.sh
+        '''

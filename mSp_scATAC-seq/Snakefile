@@ -1,0 +1,298 @@
+from glob import iglob
+import pandas as pd
+
+r1 = iglob('*/fastq/*_r1.fq.gz')
+
+samples = pd.DataFrame()
+samples['r1'] = [i for i in r1]
+samples[['rep', 'cell']] = samples.r1.str.extract('(.*)/fastq/(.*)_r1\.fq\.gz', expand=True)
+replicate = list(set(samples['rep'].values))
+
+rule all:
+    input:
+        list(samples['rep'] + '/trim_fq/' + samples['cell'] + '_r1_trimmed.fq.gz'),
+        list(samples['rep'] + '/trim_fq/' + samples['cell'] + '_r2_trimmed.fq.gz'),
+        list(samples['rep'] + '/hisat2_mm10_mapped/' + samples['cell'] + '_f2q30.bam'),
+        list(samples['rep'] + '/hisat2_mm10_log/' + samples['cell'] + '_aln_sum.txt'),
+        list(samples['rep'] + '/picard_bam/' + samples['cell'] + '_f2q30_pmd.bam'),
+        list(samples['rep'] + '/picard_bam/' + samples['cell'] + '_f2q30_pmd.bam.bai'),
+        list(samples['rep'] + '/isize_hist/' + samples['cell'] + '_isize.hist'),
+        ['{}/bam_file_list.txt'.format(i) for i in replicate],
+        ['{}/f2q30_merged.bam'.format(i) for i in replicate],
+        'aggregate/f2q30_merged.bam',
+        'aggregate/f2q30_merged_pmd.bam',
+        'aggregate/f2q30_merged_pmd.out',
+        'aggregate/f2q30_merged_pmd_isize.hist',
+        'aggregate/aggregated_scATAC_peaks.narrowPeak',
+        'aggregate/aggregated_scATAC_peaks.xls',
+        'aggregate/aggregated_scATAC_summits.bed',
+        'aggregate/aggregated_scATAC_treat_pileup.bdg',
+        'aggregate/aggregated_scATAC_control_lambda.bdg',
+        'aggregate/aggregated_scATAC_treat_pileup.bw',
+        list(samples['rep'] + '/count/' + samples["cell"] + '.count'),
+        'count_matrix_over_aggregate_narrowPeaks.csv',
+        'qc_metrics/dup_level.txt',
+        'qc_metrics/mapping_rate.txt',
+        'qc_metrics/mt_content.txt',
+        'qc_metrics/sequencing_depth.txt',
+        'qc_metrics/uniq_frags.txt',
+        'qc_metrics/frip.txt',
+        'qc_metrics/frac_open.txt'
+
+rule cutadapt:
+    input:
+        r1='{rep}/fastq/{cell}_r1.fq.gz',
+        r2='{rep}/fastq/{cell}_r2.fq.gz'
+    output:
+        r1='{rep}/trim_fq/{cell}_r1_trimmed.fq.gz',
+        r2='{rep}/trim_fq/{cell}_r2_trimmed.fq.gz'
+    log:
+        out='logs/cutadapt/{rep}/{cell}.out',
+        err='logs/cutadapt/{rep}/{cell}.err'
+    shell:
+        ''' cutadapt \
+            -f fastq \
+            -m 25 \
+            -u -1 \
+            -U -1 \
+            -a CTGTCTCTTATACACATCTCCGAGCCCACGAGACNNNNNNNNATCTCGTATGCCGTCTTCTGCTTG \
+            -A CTGTCTCTTATACACATCTGACGCTGCCGACGANNNNNNNNGTGTAGATCTCGGTGGTCGCCGTATCATT \
+            -o {output.r1} -p {output.r2} \
+            {input.r1} \
+            {input.r2} \
+            1> {log.out}
+            2> {log.err}
+        '''
+
+rule hisat2:
+    input:
+        r1='{rep}/trim_fq/{cell}_r1_trimmed.fq.gz',
+        r2='{rep}/trim_fq/{cell}_r2_trimmed.fq.gz'
+    output:
+        bam='{rep}/hisat2_mm10_mapped/{cell}_f2q30.bam',
+        stats='{rep}/hisat2_mm10_log/{cell}_aln_sum.txt'
+    threads: 4
+    shell:
+        ''' hisat2 \
+            -X 2000 \
+            -p {threads} \
+            --no-spliced-alignment \
+            -x /mnt/reference/mus_musculus/ucsc/mm10/hisat2_index/mm10_sm \
+            -1 {input.r1} \
+            -2 {input.r2} \
+            --summary-file {output.stats} | \
+            samtools view -ShuF 4 -f 2 -q 30 - | \
+            samtools sort - -T {wildcards.cell}_tmp -o {output.bam}
+        '''
+
+rule spicard:
+    input:
+        '{rep}/hisat2_mm10_mapped/{cell}_f2q30.bam',
+    output:
+        bam='{rep}/picard_bam/{cell}_f2q30_pmd.bam',
+        met='{rep}/picard_log/{cell}_f2q30_pmd.out',
+    log:
+        'logs/spicard/{rep}/{cell}.log'
+    shell:
+        ''' java -jar -Xmx4g \
+            /home/ubuntu/picard_2.17.10/picard.jar \
+            MarkDuplicates \
+            INPUT={input} \
+            OUTPUT={output.bam} \
+            REMOVE_DUPLICATES=true \
+            ASSUME_SORTED=true \
+            METRICS_FILE={output.met} \
+            2> {log}
+        '''
+
+rule index:
+    input:
+        '{rep}/picard_bam/{cell}_f2q30_pmd.bam'
+    output:
+        '{rep}/picard_bam/{cell}_f2q30_pmd.bam.bai'
+    shell:
+        ''' samtools index {input}
+        '''
+
+rule isize:
+    input:
+        '{rep}/picard_bam/{cell}_f2q30_pmd.bam'
+    output:
+        '{rep}/isize_hist/{cell}_isize.hist'
+    shell:
+        """ samtools view {input} | \
+            sed '/chrM/d' | \
+            awk '$9>0' | \
+            cut -f 9 | sort | uniq -c | \
+            sort -b -k2,2n | \
+            sed -e 's/^[ \t]*//' > {output}
+        """
+
+rule list_bam:
+    input:
+        expand('{rep}/picard_bam/{cell}_f2q30_pmd.bam', zip,
+               rep=samples["rep"],
+               cell=samples["cell"])
+    output:
+        expand('{rep}/bam_file_list.txt', rep=replicate)
+    shell:
+        ''' scripts/list_bam.sh
+        '''
+
+# there is a limit of maximum number of files you can
+# open at once (ulimit -n, which is often 1024)
+# if you have many cells, better merge them gradually
+
+rule merge_rep:
+    input:
+        '{rep}/bam_file_list.txt'
+    output:
+        '{rep}/f2q30_merged.bam'
+    shell:
+        ''' samtools merge -b {input} {output}
+        '''
+
+rule merge_all:
+    input:
+        expand('{rep}/f2q30_merged.bam', rep=replicate)
+    output:
+        'aggregate/f2q30_merged.bam'
+    shell:
+        ''' samtools merge {output} {input}
+        '''
+
+rule mpicard:
+    input:
+        'aggregate/f2q30_merged.bam'
+    output:
+        bam='aggregate/f2q30_merged_pmd.bam',
+        met='aggregate/f2q30_merged_pmd.out'
+    log:
+        'logs/mpicard/mpicard.log'
+    shell:
+        ''' java -jar -Xmx8g \
+            /home/ubuntu/picard_2.17.10/picard.jar \
+            MarkDuplicates \
+            INPUT={input} \
+            OUTPUT={output.bam} \
+            REMOVE_DUPLICATES=true \
+            ASSUME_SORTED=true \
+            METRICS_FILE={output.met} \
+            2> {log}
+        '''
+
+rule isize_aggregate:
+    input:
+        'aggregate/f2q30_merged_pmd.bam'
+    output:
+        'aggregate/f2q30_merged_pmd_isize.hist'
+    shell:
+        """ samtools view {input} | \
+            sed '/chrM/d' | \
+            awk '$9>0' | \
+            cut -f 9 | sort | uniq -c | \
+            sort -b -k2,2n | \
+            sed -e 's/^[ \t]*//' > {output}
+        """
+
+rule macs2:
+    input:
+        'aggregate/f2q30_merged_pmd.bam'
+    output:
+        'aggregate/aggregated_scATAC_peaks.narrowPeak',
+        'aggregate/aggregated_scATAC_peaks.xls',
+        'aggregate/aggregated_scATAC_summits.bed',
+        'aggregate/aggregated_scATAC_treat_pileup.bdg',
+        'aggregate/aggregated_scATAC_control_lambda.bdg'
+    log:
+        'logs/macs2/aggregated_scATAC_macs2.log'
+    shell:
+        ''' macs2 callpeak -t {input} \
+            -g mm \
+            -f BAM \
+            -q 0.01 \
+            --nomodel \
+            --shift -100 \
+            --extsize 200 \
+            --keep-dup all \
+            -B --SPMR \
+            --outdir aggregate \
+            -n aggregated_scATAC \
+            2> {log}
+        '''
+
+rule bigwig:
+    input:
+        'aggregate/aggregated_scATAC_treat_pileup.bdg',
+        'mm10.chrom.sizes'
+    output:
+        'aggregate/aggregated_scATAC_treat_pileup.bw'
+    shell:
+        ''' bdg2bw {input}
+        '''
+
+rule count:
+    input:
+        peak='aggregate/aggregated_scATAC_peaks.narrowPeak',
+        bam='{rep}/picard_bam/{cell}_f2q30_pmd.bam'
+    output:
+        '{rep}/count/{cell}.count'
+    shell:
+        ''' coverageBed \
+            -a {input.peak} \
+            -b {input.bam} | \
+            cut -f 4,11 > {output}
+        '''
+
+rule countMatrix:
+    input:
+        expand('{rep}/count/{cell}.count', zip,
+               rep=samples["rep"], cell=samples["cell"])
+    output:
+        'count_matrix_over_aggregate_narrowPeaks.csv'
+    script:
+        'scripts/genernate_count_matrix.py'
+
+rule basicQc:
+    input:
+        expand('{rep}/picard_bam/{cell}_f2q30_pmd.bam', zip,
+               rep=samples["rep"], cell=samples["cell"]),
+        expand('{rep}/picard_bam/{cell}_f2q30_pmd.bam.bai', zip,
+               rep=samples["rep"], cell=samples["cell"]),
+        expand('{rep}/hisat2_mm10_log/{cell}_aln_sum.txt', zip,
+               rep=samples["rep"], cell=samples["cell"])
+    output:
+        'qc_metrics/dup_level.txt',
+        'qc_metrics/mapping_rate.txt',
+        'qc_metrics/mt_content.txt',
+        'qc_metrics/sequencing_depth.txt',
+        'qc_metrics/uniq_frags.txt'
+    shell:
+        ''' scripts/get_dup_level.sh
+            scripts/get_depth_mr.sh
+            scripts/get_ufrags_mt.sh
+        '''
+
+rule frip:
+    input:
+        expand('{rep}/picard_bam/{cell}_f2q30_pmd.bam', zip,
+               rep=samples["rep"], cell=samples["cell"]),
+        expand('{rep}/picard_bam/{cell}_f2q30_pmd.bam.bai', zip,
+               rep=samples["rep"], cell=samples["cell"]),
+        'aggregate/aggregated_scATAC_peaks.narrowPeak'
+    output:
+        'qc_metrics/frip.txt'
+    shell:
+        ''' scripts/get_frip.sh
+        '''
+
+rule fracOpen:
+    input:
+        expand('{rep}/picard_bam/{cell}_f2q30_pmd.bam', zip,
+               rep=samples["rep"], cell=samples["cell"]),
+        'aggregate/aggregated_scATAC_peaks.narrowPeak'
+    output:
+        'qc_metrics/frac_open.txt'
+    shell:
+        ''' scripts/get_frac_open.sh
+        '''

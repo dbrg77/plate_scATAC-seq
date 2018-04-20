@@ -1,0 +1,110 @@
+from glob import iglob
+import pandas as pd
+
+r1 = iglob('../mSp_scATAC-seq/rep3/trim_fq/*_r1_trimmed.fq.gz')
+
+samples = pd.DataFrame()
+samples['r1'] = [i for i in r1]
+samples['cell'] = samples.r1.str.extract('../mSp_scATAC-seq/rep3/trim_fq/(.*)_r1_trimmed\.fq\.gz', expand=False)
+fractions = ['0.{}'.format(i) for i in range(1,10)]
+
+rule all:
+    input:
+        expand('{frac}/trim_fq/{cell}_r1_ds_tr.fq.gz',
+               frac=fractions, cell=samples.cell),
+        expand('{frac}/trim_fq/{cell}_r2_ds_tr.fq.gz',
+               frac=fractions, cell=samples.cell),
+        expand('{frac}/hisat2_mm10_mapped/{cell}_f2q30.bam',
+               frac=fractions, cell=samples.cell),
+        expand('{frac}/hisat2_mm10_log/{cell}_aln_sum.txt',
+               frac=fractions, cell=samples.cell),
+        expand('{frac}/picard_bam/{cell}_f2q30_pmd.bam',
+               frac=fractions, cell=samples.cell),
+        expand('{frac}/picard_bam/{cell}_f2q30_pmd.bam.bai',
+               frac=fractions, cell=samples.cell),
+        expand('{frac}/qc_metrics/{qc}.txt',
+               frac=fractions,
+               qc=['dup_level', 'mapping_rat', 'mt_content',
+                   'sequencing_depth', 'uniq_frags'])
+
+rule subsample:
+    input:
+        r1='../mSp_scATAC-seq/rep3/trim_fq/{cell}_r1_trimmed.fq.gz',
+        r2='../mSp_scATAC-seq/rep3/trim_fq/{cell}_r2_trimmed.fq.gz'
+    output:
+        r1='{frac}/trim_fq/{cell}_r1_ds_tr.fq.gz',
+        r2='{frac}/trim_fq/{cell}_r2_ds_tr.fq.gz'
+    shell:
+        ''' seqtk sample -s 42 {input.r1} {wildcards.frac} | gzip > {output.r1}
+            seqtk sample -s 42 {input.r2} {wildcards.frac} | gzip > {output.r2}
+        '''
+
+rule hisat2:
+    input:
+        r1='{frac}/trim_fq/{cell}_r1_ds_tr.fq.gz',
+        r2='{frac}/trim_fq/{cell}_r2_ds_tr.fq.gz'
+    output:
+        bam='{frac}/hisat2_mm10_mapped/{cell}_f2q30.bam',
+        stats='{frac}/hisat2_mm10_log/{cell}_aln_sum.txt'
+    threads: 4
+    shell:
+        ''' hisat2 \
+            -X 2000 \
+            -p {threads} \
+            --no-spliced-alignment \
+            -x /mnt/reference/mus_musculus/ucsc/mm10/hisat2_index/mm10_sm \
+            -1 {input.r1} \
+            -2 {input.r2} \
+            --summary-file {output.stats} | \
+            samtools view -ShuF 4 -f 2 -q 30 - | \
+            samtools sort - -T {wildcards.frac}/{wildcards.cell}_tmp \
+            -o {output.bam}
+        '''
+
+rule spicard:
+    input:
+        '{frac}/hisat2_mm10_mapped/{cell}_f2q30.bam',
+    output:
+        bam='{frac}/picard_bam/{cell}_f2q30_pmd.bam',
+        met='{frac}/picard_log/{cell}_f2q30_pmd.out',
+    log:
+        'logs/spicard/{frac}/{cell}.log'
+    shell:
+        ''' java -jar -Xmx4g \
+            /home/ubuntu/picard_2.17.10/picard.jar \
+            MarkDuplicates \
+            INPUT={input} \
+            OUTPUT={output.bam} \
+            REMOVE_DUPLICATES=true \
+            ASSUME_SORTED=true \
+            METRICS_FILE={output.met} \
+            2> {log}
+        '''
+
+rule index:
+    input:
+        '{frac}/picard_bam/{cell}_f2q30_pmd.bam'
+    output:
+        '{frac}/picard_bam/{cell}_f2q30_pmd.bam.bai'
+    shell:
+        ''' samtools index {input}
+        '''
+
+rule basicQc:
+    input:
+        expand('{frac}/picard_bam/{cell}_f2q30_pmd.bam',
+               frac=fractions, cell=samples.cell),
+        expand('{frac}/picard_bam/{cell}_f2q30_pmd.bam.bai',
+               frac=fractions, cell=samples.cell),
+        expand('{frac}/hisat2_mm10_log/{cell}_aln_sum.txt',
+               frac=fractions, cell=samples.cell)
+    output:
+        expand('{frac}/qc_metrics/{qc}.txt',
+               frac=fractions,
+               qc=['dup_level', 'mapping_rat', 'mt_content',
+                   'sequencing_depth', 'uniq_frags'])
+    shell:
+        ''' scripts/get_dup_level.sh
+            scripts/get_depth_mr.sh
+            scripts/get_ufrags_mt.sh
+        '''

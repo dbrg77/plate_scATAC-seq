@@ -1,0 +1,102 @@
+from glob import glob
+
+cf = glob('../mSp_scATAC-seq/rep*/count/*.count')
+immgen_peak = glob('../immgen_atac/macs2_pk/*_peaks.narrowPeak')
+immgen = [i.split('/')[-1][:-17] for i in immgen_peak]
+
+rule all:
+    input:
+        'spleen_union_peaks_no_black_list.bed',
+        'homer_annotation_spleen_union_peaks_no_black_list.txt',
+        ['/'.join(('count_spleen_union', i.split('/')[-3], i.split('/')[-1])) for i in cf],
+        ['binarised_immgen/' + i + '_opened_peaks.id' for i in immgen],
+        ['immgen_count/' + i + '.count' for i in immgen],
+        # 'mSp_scATAC_count_matrix_over_all.csv',
+        'mSp_scATAC_count_matrix_over_all.colnames',
+        'mSp_scATAC_count_matrix_over_all.rownames',
+        'mSp_scATAC_count_matrix_over_all.mtx',
+        'immgen_count_matrix_over_all.csv'
+
+rule unionPeaks:
+    input:
+        '../mSp_scATAC/merged_all/aggregated_scATAC_peaks.narrowPeak',
+        '../immgen_atac/immgen_mSp_union_peaks.bed'
+    output:
+        'spleen_union_peaks_no_black_list.bed'
+    shell:
+        ''' cat {input} | \
+            cut -f 1-3 | \
+            sortBed -i - | \
+            mergeBed -i - | \
+            intersectBed -a - -b mm10.blacklist.bed -wa -v | \
+            awk 'BEGIN{{OFS="\t"}}{{print $1, $2, $3, "spleen_uPk_" NR}}' \
+            > {output}
+        '''
+
+rule homer:
+    input:
+        'spleen_union_peaks_no_black_list.bed'
+    output:
+        'homer_annotation_spleen_union_peaks_no_black_list.txt'
+    shell:
+        ''' annotatePeaks.pl {input} mm10 > {output}
+        '''
+
+rule scCount:
+    input:
+        bam='../mSp_scATAC-seq/{rep}/picard_bam/{cell}_f2q30_pmd.bam',
+        uPk='spleen_union_peaks_no_black_list.bed'
+    output:
+        'count_spleen_union/{rep}/{cell}.count'
+    shell:
+        ''' coverageBed \
+            -a {input.uPk} \
+            -b {input.bam} | \
+            cut -f 4,5 > {output}
+        '''
+
+rule immgenCount:
+    input:
+        bam='../immgen_atac/picard_bam/{run_accession}_f2q30_pmd.bam',
+        uPk='spleen_union_peaks_no_black_list.bed'
+    output:
+        'immgen_count/{run_accession}.count'
+    shell:
+        ''' coverageBed \
+            -a {input.uPk} \
+            -b {input.bam} | \
+            cut -f 4,5 > {output}
+        '''
+
+rule binariseImmGen:
+    input:
+        uPk='spleen_union_peaks_no_black_list.bed',
+        immgen='../immgen_atac/macs2_pk/{run_accession}_peaks.narrowPeak'
+    output:
+        'binarised_immgen/{run_accession}_opened_peaks.id'
+    shell:
+        ''' intersectBed \
+            -a {input.uPk} \
+            -b {input.immgen} \
+            -wa -u | \
+            cut -f 4 \
+            > {output}
+        '''
+
+rule collectScMatrix:
+    input:
+        ['/'.join(('count_spleen_union', i.split('/')[-3], i.split('/')[-1])) for i in cf],
+    output:
+        'mSp_scATAC_count_matrix_over_all.colnames',
+        'mSp_scATAC_count_matrix_over_all.rownames',
+        'mSp_scATAC_count_matrix_over_all.mtx'
+    script:
+        'collect_count_matrix_sc.py'
+
+rule colectImmGeneMatrix:
+    input:
+        expand('immgen_count/{run_accession}.count', run_accession=immgen)
+    output:
+        'immgen_count_matrix_over_all.csv'
+    script:
+        'collect_count_matrix_immgen.py'
