@@ -15,7 +15,7 @@ This repository only contains necessary files used to reproduce the analyses and
 
 For the analysis of the ImmGen bulk ATAC-seq and the Fluidigm C1 scATAC-seq data, download the fastq files (url and study accession number provided in the correponding directories) into the fastq directory and run snakemake in the same way. Or, you can use [stream_ena](http://www.nxn.se/valent/streaming-rna-seq-data-from-ena) to avoid downloading fastq files to save space.
 
-Large files are handled by `git fls`. However, I have used all my git lfs bandwidth this month. The count matrix `mSp_scATAC_count_matrix_over_all.mtx` is not in this repository. For now, download the count file from [here](ftp://ngs.sanger.ac.uk/production/teichmann/xi/plate_scATAC-seq), and put it under `cmp_to_immgen/`, and the notebook should run without any problem.
+Large files are handled by `git fls`. However, I have used all my git lfs bandwidth this month. The count matrix `mSp_scATAC_count_matrix_over_all.mtx` is not in this repository. For now, download the count file from here: `ftp://ngs.sanger.ac.uk/production/teichmann/xi/plate_scATAC-seq`, and put it under `cmp_to_immgen/`, and the notebook should run without any problem.
 
 ## Requirements
 
