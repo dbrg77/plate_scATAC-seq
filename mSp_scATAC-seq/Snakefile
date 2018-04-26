@@ -30,7 +30,9 @@ rule all:
         'aggregate/aggregated_scATAC_control_lambda.bdg',
         'aggregate/aggregated_scATAC_treat_pileup.bw',
         list(samples['rep'] + '/count/' + samples["cell"] + '.count'),
-        'count_matrix_over_aggregate_narrowPeaks.csv',
+        'mSp_scATAC_count_matrix_over_aggregate.mtx',
+        'mSp_scATAC_count_matrix_over_aggregate.rownames',
+        'mSp_scATAC_count_matrix_over_aggregate.colnames',
         'qc_metrics/dup_level.txt',
         'qc_metrics/mapping_rate.txt',
         'qc_metrics/mt_content.txt',
@@ -249,7 +251,9 @@ rule countMatrix:
         expand('{rep}/count/{cell}.count', zip,
                rep=samples["rep"], cell=samples["cell"])
     output:
-        'count_matrix_over_aggregate_narrowPeaks.csv'
+        'mSp_scATAC_count_matrix_over_aggregate.mtx',
+        'mSp_scATAC_count_matrix_over_aggregate.rownames',
+        'mSp_scATAC_count_matrix_over_aggregate.colnames'
     script:
         'scripts/genernate_count_matrix.py'
 
