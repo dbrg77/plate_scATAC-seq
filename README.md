@@ -20,7 +20,7 @@ Large files are handled by `git fls`. However, I have used all my git lfs bandwi
 ## Softwares/Packages
 
 ```
-macs2 (v2.1.1.20160309) (this needes python2)
+macs2 (v2.1.1.20160309) (this needs python2)
 
 # packages from installed via conda:
 #
