@@ -22,7 +22,7 @@ Large files are handled by `git fls`. However, I have used all my git lfs bandwi
 ```
 macs2 (v2.1.1.20160309) (this needs python2)
 
-# packages from installed via conda:
+# packages installed via conda:
 #
 # Name                    Version                   Build  Channel
 bedtools                  2.27.1                        1    bioconda
