@@ -46,6 +46,25 @@ You also need `calc`, `addCols`, `bedClip` and `bedGraphToBigWig` from [UCSC uti
 
 Finally, you need [bdg2bw](https://gist.github.com/taoliu/2469050) to convert the macs2 generated begraph to bigwig for visualisation.
 
+## Experimental tips (not exactly science)
+
+  * It is actually easier to do the experiment in 384-well plates if you have a 16-channel multi-channel pipette.
+
+  * When pooling amplified single-cell libraries, you can use an 8-channel multi-channel pipette to transfer an entire 384-well plate into 8 wells of a deep-well 96-well plate, like this:
+
+<img src="misc/pooling1.jpg" width="450"> <img src="misc/pooling2.jpg" width="450"> 
+
+Since all single-cell libraries are already indexed here, you don't need to change tips. After that, you will end up with slightly more than 900 ul mix in each deep well. Then, use a P1000 Gilson to transfer those ~900 ul x 8 = ~7.2 ml libary mix into a 50 ml falcon tube, and add 36 ml Buffer PB (5 volume).
+
+  * The full volume is too large for a Qiagen MinElute column, you have two choices. You can use the Exntender Tube from the Qiagen Maxiprep kit  
+  <img src="misc/extender_tube.jpg" width="450">  
+  However, Qiagen don't sell that separately. If you don't have spare ones, you can punch a hole at the bottom of a 50 ml falcon tube using a SAFE method (don't hurt yourself!!!), like this:  
+  <img src="misc/hole_in_falcon.jpg" width="350">  
+  Then, you cut the cap of the MinElute column and use parafilm to seal the falcon to the column like this:  
+  <img src="misc/falcon_to_column.jpg" width="350">  
+  * Now you can connect the column to the vacuum, and pour your libray mix on top, like this:  
+  <img src="misc/vacuum.png" width="450">
+
 ## Some descriptive plots
 
 ![](figures/ucsc_example_cxcr5_locus.jpg)
