@@ -62,7 +62,7 @@ Since all single-cell libraries are already indexed here, you don't need to chan
   <img src="misc/hole_in_falcon.jpg" width="350">  
   Then, you cut the cap of the MinElute column and use parafilm to seal the falcon to the column like this:  
   <img src="misc/falcon_to_column.jpg" width="350">  
-  * Now you can connect the column to the vacuum, and pour your libray mix on top, like this:  
+  Now you can connect the column to the vacuum, and pour your libray mix on top, like this:  
   <img src="misc/vacuum.png" width="450">
 
 ## Some descriptive plots
