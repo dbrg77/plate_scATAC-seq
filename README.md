@@ -52,7 +52,7 @@ Finally, you need [bdg2bw](https://gist.github.com/taoliu/2469050) to convert th
 
   * When pooling amplified single-cell libraries, you can use an 8-channel multi-channel pipette to transfer an entire 384-well plate into 8 wells of a deep-well 96-well plate, like this:
 
-<img src="misc/pooling1.jpg" width="450"> <img src="misc/pooling2.jpg" width="450"> 
+<img src="misc/pooling1.jpg" width="400"> <img src="misc/pooling2.jpg" width="400"> 
 
 Since all single-cell libraries are already indexed here, you don't need to change tips. After that, you will end up with slightly more than 900 ul mix in each deep well. Then, use a P1000 Gilson to transfer those ~900 ul x 8 = ~7.2 ml libary mix into a 50 ml falcon tube, and add 36 ml Buffer PB (5 volume).
 
