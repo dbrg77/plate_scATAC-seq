@@ -11,7 +11,7 @@ Follow the notebook for the data analysis:
 
 `3.motif_enrichment_analysis.ipynb` is used to generate the heatmap representation of known motifs enrichment by HOMER.
 
-This repository only contains necessary files used to reproduce the analyses and figures. Raw data and any intermediate file are not included. To reproduce the full analysis, download the fastq files from ArrayExpress (E-MTAB-6714), and put them in the fastq directories under `mSp_scATAC-seq/rep{1..11}/fastq/`. Then run the pipeline using snakemake using the Snakefile provided. Currently, the ArrayExpress submission is under curation, fastq files can be downloaded from this address: `ftp://ngs.sanger.ac.uk/production/teichmann/xi/plate_scATAC-seq/`
+This repository only contains necessary files used to reproduce the analyses and figures. Raw data and any intermediate file are not included. To reproduce the full analysis, download the fastq files from ArrayExpress (E-MTAB-6714), and put them in the fastq directories under `mSp_scATAC-seq/rep{1..11}/fastq/`. Then run the pipeline using snakemake using the Snakefile provided (change the path to your `picard.jar` accordingly). Currently, the ArrayExpress submission is under curation, fastq files can be downloaded from this address: `ftp://ngs.sanger.ac.uk/production/teichmann/xi/plate_scATAC-seq/`
 
 For the analysis of the ImmGen bulk ATAC-seq and the Fluidigm C1 scATAC-seq experiments, download the raw data (url and study accession number provided in the correponding directories) into the fastq directory and run snakemake in the same way. Or, you can use [stream_ena](http://www.nxn.se/valent/streaming-rna-seq-data-from-ena) to avoid downloading fastq files to save space.
 
