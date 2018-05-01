@@ -21,6 +21,7 @@ Large files are handled by `git fls`. However, I have used all my git lfs bandwi
 
 ```
 macs2 (v2.1.1.20160309) (this needs python2)
+picard (v2.17.10)
 
 # packages installed via conda:
 #
