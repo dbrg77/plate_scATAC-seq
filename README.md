@@ -51,6 +51,8 @@ Finally, you need [bdg2bw](https://gist.github.com/taoliu/2469050) to convert th
 
   * It is actually easier to do the experiment in 384-well plates if you have a 16-channel multi-channel pipette.
 
+<img src="misc/16_channel_pipette.jpg" width="400"> 
+
   * When pooling amplified single-cell libraries, you can use an 8-channel multi-channel pipette to transfer an entire 384-well plate into 8 wells of a deep-well 96-well plate, like this:
 
 <img src="misc/pooling1.jpg" width="400"> <img src="misc/pooling2.jpg" width="400"> 
