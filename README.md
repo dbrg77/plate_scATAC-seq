@@ -1,6 +1,12 @@
 # A rapid and robust plate-based single cell ATAC-seq (scATAC-seq) method
 This repository contains codes for processing and analysing scATAC-seq data for our manuscript. Click [here](https://www.biorxiv.org/content/early/2018/04/27/309831) to read the preprint on bioarxiv.
 
+## Why bother? What's the point of this method?
+
+Here, I quote from the Dutch computer scientist [Edsger W. Dijkstra](https://en.wikiquote.org/wiki/Edsger_W._Dijkstra):
+
+> <b>Simplicity is prerequisite for reliability.</b>
+
 ## Usage
 
 Follow the notebook for the data analysis:
@@ -66,8 +72,8 @@ Since all single-cell libraries are already indexed here, you don't need to chan
   Then, you cut the cap of the MinElute column and use parafilm to seal the falcon to the column like this:  
   <img src="misc/falcon_to_column.png" width="350">  
   Now you can connect the column to the vacuum, and pour your libray mix on top, like this:  
-  <img src="misc/vacuum.png" width="450">
-
+  <img src="misc/vacuum.png" width="450">  
+  It will take a while for the whole volume to go through the column, so you can just leave it and go doing other experiments or drinking coffee.
 ## Some descriptive plots
 
 ![](figures/ucsc_example_cxcr5_locus.jpg)
