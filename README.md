@@ -73,7 +73,8 @@ Since all single-cell libraries are already indexed here, you don't need to chan
   <img src="misc/falcon_to_column.png" width="350">  
   Now you can connect the column to the vacuum, and pour your libray mix on top, like this:  
   <img src="misc/vacuum.png" width="450">  
-  It will take a while for the whole volume to go through the column, so you can just leave it and go doing other experiments or drinking coffee.
+  It will take a while for the whole volume to go through the column, so you can just leave it and go doing other experiments or drinking coffee.  
+  
 ## Some descriptive plots
 
 ![](figures/ucsc_example_cxcr5_locus.jpg)
