@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo -e "cell\tuniq_frags" > qc_metrics/uniq_frags.txt
+echo -e "cell\tuniq_frags" > qc_metrics/uniq_nuc_frags.txt
 echo -e "cell\tmt_content" > qc_metrics/mt_content.txt
 
 for i in */*/picard_bam/*.bam; do
@@ -10,6 +10,6 @@ for i in */*/picard_bam/*.bam; do
     nread=$(calc ${tread}-${mt} | awk '{print $3}')
     nfrag=$(calc ${nread}/2 | awk '{print $3}')
     p=$(calc ${mt}/${tread} | awk '{print $3}')
-    echo -e "${cell%_f2q30_pmd.bam}\t${nfrag}" >> qc_metrics/uniq_frags.txt
+    echo -e "${cell%_f2q30_pmd.bam}\t${nfrag}" >> qc_metrics/uniq_nuc_frags.txt
     echo -e "${cell%_f2q30_pmd.bam}\t${p}" >> qc_metrics/mt_content.txt
 done
