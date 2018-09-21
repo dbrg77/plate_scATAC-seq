@@ -43,7 +43,7 @@ rule all:
         'qc_metrics/mt_content.txt',
         'qc_metrics/sequencing_depth.txt',
         'qc_metrics/uniq_nuc_frags.txt',
-        'qc_metrics/libray_size.txt',
+        'qc_metrics/library_size.txt',
         'qc_metrics/frip.txt',
         'qc_metrics/frac_open.txt'
 
@@ -201,7 +201,7 @@ rule macs2:
             --extsize 200 \
             --keep-dup all \
             -B --SPMR \
-            --outdir mouse/{wildcards.cells}/aggregate \
+            --outdir {wildcards.sp}/{wildcards.cells}/aggregate \
             -n aggregated_scATAC \
             2> {log}
         '''
@@ -247,7 +247,7 @@ rule basicQc:
         'qc_metrics/mt_content.txt',
         'qc_metrics/sequencing_depth.txt',
         'qc_metrics/uniq_nuc_frags.txt',
-        'qc_metrics/libray_size.txt'
+        'qc_metrics/library_size.txt'
     shell:
         ''' scripts/get_dup_level.sh
             scripts/get_depth_mr.sh
