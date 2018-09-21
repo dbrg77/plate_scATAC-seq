@@ -28,7 +28,8 @@ rule all:
         'qc_metrics/mapping_rate.txt',
         'qc_metrics/mt_content.txt',
         'qc_metrics/sequencing_depth.txt',
-        'qc_metrics/uniq_frags.txt',
+        'qc_metrics/uniq_nuc_frags.txt',
+        'qc_metrics/library_size.txt',
         'qc_metrics/frip.txt',
         'qc_metrics/frac_open.txt'
 
@@ -179,11 +180,13 @@ rule basicQc:
         'qc_metrics/mapping_rate.txt',
         'qc_metrics/mt_content.txt',
         'qc_metrics/sequencing_depth.txt',
-        'qc_metrics/uniq_frags.txt'
+        'qc_metrics/uniq_nuc_frags.txt',
+        'qc_metrics/library_size.txt'
     shell:
         ''' scripts/get_dup_level.sh
             scripts/get_depth_mr.sh
             scripts/get_ufrags_mt.sh
+            scripts/get_lib_size.sh
         '''
 
 rule frip:
