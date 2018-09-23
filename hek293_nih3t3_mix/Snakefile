@@ -1,0 +1,126 @@
+from glob import iglob
+import pandas as pd
+
+fqs = iglob('fastq/*_r1.fq.gz')
+cells = [i[6:-9] for i in fqs]
+
+rule all:
+    input:
+        expand('trim_fq/{cell}_r1_trimmed.fq.gz', cell=cells),
+        expand('trim_fq/{cell}_r2_trimmed.fq.gz', cell=cells),
+        expand('hisat2_mapped/{cell}_f2q30.bam', cell=cells),
+        expand('hisat2_log/{cell}_aln_sum.txt', cell=cells),
+        expand('picard_bam/{cell}_f2q30_pmd.bam', cell=cells),
+        expand('picard_bam/{cell}_f2q30_pmd.bam.bai', cell=cells),
+        expand('picard_idxstats/{cell}_f2q30_pmd.idxstats', cell=cells),
+        'qc_metrics/sequencing_depth.txt',
+        'qc_metrics/mapping_rate.txt',
+        'qc_metrics/dup_level.txt',
+        'qc_metrics/library_size.txt',
+        'qc_metrics/mt_content.txt',
+        'qc_metrics/uniq_nuc_frags.txt'
+
+rule cutadapt:
+    input:
+        r1='fastq/{cell}_r1.fq.gz',
+        r2='fastq/{cell}_r2.fq.gz'
+    output:
+        r1='trim_fq/{cell}_r1_trimmed.fq.gz',
+        r2='trim_fq/{cell}_r2_trimmed.fq.gz'
+    log:
+        out='logs/cutadapt/{cell}.out',
+        err='logs/cutadapt/{cell}.err'
+    shell:
+        ''' cutadapt \
+            -f fastq \
+            -m 25 \
+            -u -1 \
+            -U -1 \
+            -a CTGTCTCTTATACACATCTCCGAGCCCACGAGACNNNNNNNNATCTCGTATGCCGTCTTCTGCTTG \
+            -A CTGTCTCTTATACACATCTGACGCTGCCGACGANNNNNNNNGTGTAGATCTCGGTGGTCGCCGTATCATT \
+            -o {output.r1} -p {output.r2} \
+            {input.r1} \
+            {input.r2} \
+            1> {log.out}
+            2> {log.err}
+        '''
+
+rule hisat2:
+    input:
+        r1='trim_fq/{cell}_r1_trimmed.fq.gz',
+        r2='trim_fq/{cell}_r2_trimmed.fq.gz'
+    output:
+        bam='hisat2_mapped/{cell}_f2q30.bam',
+        stats='hisat2_log/{cell}_aln_sum.txt'
+    threads: 4
+    shell:
+        ''' hisat2 \
+            -X 2000 \
+            -p {threads} \
+            --no-spliced-alignment \
+            -x /mnt/reference/hg38_mm10_mix/hisat2_index/genome \
+            -1 {input.r1} \
+            -2 {input.r2} \
+            --summary-file {output.stats} | \
+            samtools view -ShuF 4 -f 2 -q 30 - | \
+            samtools sort - -T {wildcards.cell}_tmp -o {output.bam}
+        '''
+
+rule picard:
+    input:
+        'hisat2_mapped/{cell}_f2q30.bam',
+    output:
+        bam='picard_bam/{cell}_f2q30_pmd.bam',
+        met='picard_log/{cell}_f2q30_pmd.out',
+    log:
+        'logs/picard/{cell}.log'
+    shell:
+        ''' java -jar -Xmx4g \
+            /home/ubuntu/picard_2.17.10/picard.jar \
+            MarkDuplicates \
+            INPUT={input} \
+            OUTPUT={output.bam} \
+            REMOVE_DUPLICATES=true \
+            ASSUME_SORTED=true \
+            METRICS_FILE={output.met} \
+            2> {log}
+        '''
+
+rule index:
+    input:
+        'picard_bam/{cell}_f2q30_pmd.bam'
+    output:
+        'picard_bam/{cell}_f2q30_pmd.bam.bai'
+    shell:
+        ''' samtools index {input}
+        '''
+
+rule idxstats:
+    input:
+        bam='picard_bam/{cell}_f2q30_pmd.bam',
+        bai='picard_bam/{cell}_f2q30_pmd.bam.bai'
+    output:
+        'picard_idxstats/{cell}_f2q30_pmd.idxstats'
+    shell:
+        ''' samtools idxstats {input.bam} > {output}
+        '''
+
+rule qc:
+    input:
+        bam=expand('picard_bam/{cell}_f2q30_pmd.bam',
+                   cell=cells),
+        bai=expand('picard_bam/{cell}_f2q30_pmd.bam.bai',
+                   cell=cells)
+    output:
+        'qc_metrics/sequencing_depth.txt',
+        'qc_metrics/mapping_rate.txt',
+        'qc_metrics/dup_level.txt',
+        'qc_metrics/library_size.txt',
+        'qc_metrics/mt_content.txt',
+        'qc_metrics/uniq_nuc_frags.txt'
+    shell:
+        ''' scripts/get_depth_mr.sh
+            scripts/get_dup_level.sh
+            scripts/get_lib_size.sh
+            scripts/get_ufrags_mt.sh
+        '''
