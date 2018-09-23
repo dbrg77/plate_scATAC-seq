@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo -e "cell\tdup_level" > qc_metrics/library_size.txt
+echo -e "cell\tlibrary_size" > qc_metrics/library_size.txt
 
 for i in */*/picard_log/*.out; do
     size=$(grep Unknown ${i} | cut -f 10)
