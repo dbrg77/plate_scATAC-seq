@@ -1,4 +1,4 @@
-cell	dup_level
+cell	library_size
 SRR1781219	31085
 SRR1781220	16520
 SRR1781221	28789
