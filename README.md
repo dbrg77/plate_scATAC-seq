@@ -1,5 +1,5 @@
 # A rapid and robust plate-based single cell ATAC-seq (scATAC-seq) method
-This repository contains codes for processing and analysing scATAC-seq data for our manuscript. Click [here](https://www.biorxiv.org/content/early/2018/10/11/309831) to read the preprint on bioarxiv.
+This repository contains codes for processing and analysing scATAC-seq data for our manuscript. Click [here](https://www.nature.com/articles/s41467-018-07771-0) to read our paper published in Nature Communications.
 
 ## Why bother? What's the point of this method?
 
