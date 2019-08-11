@@ -125,7 +125,7 @@ rule isize:
     shell:
         """ samtools view {input} | \
             sed '/chrM/d' | \
-            awk '{if($9>0){print $9} else {print -1*$9}}' | \
+            awk '{{ if($9>0){{print $9}} else {{print -1*$9}} }}' | \
             sort | uniq -c | \
             sort -b -k2,2n | \
             sed -e 's/^[ \t]*//' > {output}
@@ -192,7 +192,7 @@ rule isize_aggregate:
     shell:
         """ samtools view {input} | \
             sed '/chrM/d' | \
-            awk '{if($9>0){print $9} else {print -1*$9}}' | \
+            awk '{{ if($9>0){{print $9}} else {{print -1*$9}} }}' | \
             sort | uniq -c | \
             sort -b -k2,2n | \
             sed -e 's/^[ \t]*//' > {output}
