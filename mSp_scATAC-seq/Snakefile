@@ -79,6 +79,7 @@ rule hisat2:
         ''' hisat2 \
             -X 2000 \
             -p {threads} \
+            --no-temp-splicesite \
             --no-spliced-alignment \
             -x /mnt/reference/mus_musculus/ucsc/mm10/hisat2_index/mm10_sm \
             -1 {input.r1} \
