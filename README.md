@@ -92,4 +92,4 @@ Finally, you need [bdg2bw](https://gist.github.com/taoliu/2469050) to convert th
 
 # Contact
 Xi Chen  
-xc1@sanger.ac.uk
+chenx9@sustech.edu.cn
