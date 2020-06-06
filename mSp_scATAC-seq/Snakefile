@@ -199,6 +199,8 @@ rule isize_aggregate:
             sed -e 's/^[ \t]*//' > {output}
         """
 
+# I don't think BAMPE is what we want for ATAC,
+# but check this discussion FYI: https://github.com/taoliu/MACS/issues/145
 rule macs2:
     input:
         'aggregate/f2q30_merged_pmd.bam'
