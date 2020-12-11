@@ -68,7 +68,7 @@ Finally, you need [bdg2bw](https://gist.github.com/taoliu/2469050) to convert th
 
 <img src="misc/pooling1.jpg" width="400"> <img src="misc/pooling2.jpg" width="400">
 
-  * Altenatively, you can use a plate reservoir, if you feel pipetting is too much for you. We used [this one from Clickbio](https://www.click-bio.com/product-page/vblok200). This does save a lot of effort by simple centrifugation, like this:
+  * Altenatively, you can use a plate reservoir, if you feel pipetting is too much for you. We used [this one from Clickbio](https://www.clickbio.com/product-page/vblok200). This does save a lot of effort by simple centrifugation, like this:
 
 <img src="misc/plate_res_1.jpg" width="500"> <img src="misc/plate_res_2.jpg" width="500">
 
