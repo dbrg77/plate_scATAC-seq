@@ -1,6 +1,6 @@
 # A rapid and robust plate-based single cell ATAC-seq (scATAC-seq) method
 
-## Note: this repository is here just for the sake of reproducing the analysis of our original [Nature Communications publication](https://www.nature.com/articles/s41467-018-07771-0). We now have a more updated version of the snakemake pipeline purely for the purpose of data processing: [scATAC_snakemake](https://github.com/dbrg77/scATAC_snakemake). It has more flexible settings, and the output is mimicing the `10x Genomics` output, which can be put directly into various downstream scATAC-seq data analysis packages.
+## Note: this repository is here just for the sake of reproducing the analysis of our original [Nature Communications publication](https://www.nature.com/articles/s41467-018-07771-0). We now have a more updated version of the snakemake pipeline purely for the purpose of data processing. Please have a look at here: [scATAC_snakemake](https://github.com/dbrg77/scATAC_snakemake). It has more flexible settings, and the output is mimicing the `10x Genomics` output, which can be put directly into various downstream scATAC-seq data analysis packages.
   
   
   
