@@ -11,6 +11,8 @@ Here, I quote from the Dutch computer scientist [Edsger W. Dijkstra](https://en.
 
 ### 1. Data processing (from fastq to data quality information and count matrix)
 
+### (Update: we have a more updated version of the snakemake pipeline purely for the purpose of data processing: [scATAC_snakemake](https://github.com/dbrg77/scATAC_snakemake). It has more flexible settings, and the output is mimicing the 10x Genomics output, which can be put directly into downstream scATAC-seq data analysis packages.)
+
 All steps are executed using the `Snakefile` in the corresponding directories. To start the workflow, download the fastq files from ArrayExpress ([E-MTAB-6714](https://www.ebi.ac.uk/arrayexpress/experiments/E-MTAB-6714/)), and put them in the fastq directories under `mSp_scATAC-seq/rep{1..11}/fastq/` and under `other_cells_methods/*/fastq`. Then run the pipeline using snakemake with the `Snakefile` provided, but change the path of certain files/programs in the `Snakefile` such as `picard.jar` according to your own environment.
 
 For the processing of the ImmGen bulk ATAC-seq and the public Fluidigm C1 scATAC-seq experiments, download the raw data (url and study accession number provided in the correponding directories) into the fastq directory and run snakemake in the same way. Or, you can use [stream_ena](http://www.nxn.se/valent/streaming-rna-seq-data-from-ena) to avoid downloading fastq files to save space.
